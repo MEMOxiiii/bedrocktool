@@ -20,7 +20,6 @@ type Handler struct {
 	SessionStart       func(s *Session, serverName string) error
 	PlayerDataModifier func(s *Session, identity *login.IdentityData, data *login.ClientData)
 	GameDataModifier   func(s *Session, gameData *minecraft.GameData)
-	FilterResourcePack func(s *Session, id string) bool
 	OnFinishedPack     func(s *Session, pack resource.Pack) error
 
 	PacketRaw      func(s *Session, header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time)
@@ -64,18 +63,6 @@ func (h Handlers) PlayerDataModifier(s *Session, identity *login.IdentityData, d
 		}
 		handler.PlayerDataModifier(s, identity, data)
 	}
-}
-
-func (h Handlers) FilterResourcePack(s *Session, id string) bool {
-	for _, handler := range h {
-		if handler.FilterResourcePack == nil {
-			continue
-		}
-		if handler.FilterResourcePack(s, id) {
-			return true
-		}
-	}
-	return false
 }
 
 func (h Handlers) OnFinishedPack(s *Session, pack resource.Pack) error {

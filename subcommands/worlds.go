@@ -15,6 +15,7 @@ type WorldSettings struct {
 	Void          bool     `opt:"Void Generator" flag:"void" default:"true" desc:"locale.enable_void"`
 	Image         bool     `opt:"Image" flag:"image" desc:"locale.save_image"`
 	Entities      bool     `opt:"Entities" flag:"save-entities" default:"true" desc:"Save Entities"`
+	Players       bool     `opt:"Players" flag:"save-players" default:"false" desc:"save players as entities"`
 	Inventories   bool     `opt:"Inventories" flag:"save-inventories" default:"true" desc:"Save Inventories"`
 	BlockUpdates  bool     `opt:"Block Updates" flag:"block-updates" desc:"Block updates"`
 	EntityCulling bool     `opt:"Entity Culling" flag:"entity-culling" desc:"Remove Entities which died or are deleted (experimental)"`
@@ -64,7 +65,7 @@ func (WorldCMD) Run(ctx context.Context, settings any) error {
 		Script:          scriptSource,
 		BlockUpdates:    worldSettings.BlockUpdates,
 		EntityCulling:   worldSettings.EntityCulling,
-		//Players:         true,
+		Players:         worldSettings.Players,
 	}))
 
 	err = p.Run(ctx, true)

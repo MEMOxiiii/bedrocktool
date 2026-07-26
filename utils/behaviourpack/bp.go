@@ -12,17 +12,15 @@ import (
 )
 
 type Pack struct {
-	formatVersion string
-	Manifest      *resource.Manifest
-	blocks        map[string]*BlockBehaviour
-	items         map[string]*itemBehaviour
-	entities      map[string]*entityBehaviour
-	biomes        []biomeBehaviour
+	Manifest *resource.Manifest
+	blocks   map[string]*BlockBehaviour
+	items    map[string]*itemBehaviour
+	entities map[string]*entityBehaviour
+	biomes   []biomeBehaviour
 }
 
 func New(name string) *Pack {
 	return &Pack{
-		formatVersion: "1.16.0",
 		Manifest: &resource.Manifest{
 			FormatVersion: 2,
 			Header: resource.Header{

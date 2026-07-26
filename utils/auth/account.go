@@ -6,9 +6,12 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils/auth/xbox"
@@ -18,6 +21,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/franchise/signaling"
 	"github.com/df-mc/go-xsapi"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
@@ -103,8 +107,35 @@ func (a *Account) Discovery(ctx context.Context) (d *discovery.Discovery, err er
 	return a.discovery, nil
 }
 
+func (a *Account) checkMCToken() bool {
+	if a.token.MCToken.ValidUntil.Before(time.Now()) {
+		return false
+	}
+	data, err := base64.RawURLEncoding.DecodeString(strings.Split(a.token.MCToken.AuthorizationHeader, ".")[1])
+	if err != nil {
+		logrus.Error("invalid mctoken, refreshing")
+		return false
+	}
+	var claims map[string]any
+	if err := json.Unmarshal(data, &claims); err != nil {
+		logrus.Error("invalid mctoken, refreshing")
+		return false
+	}
+	claimVer := claims["ver"].(string)
+	if claimVer != protocol.CurrentVersion {
+		logrus.Info("mctoken for older version, refreshing")
+		return false
+	}
+	return true
+}
+
 func (a *Account) MCToken(ctx context.Context) (*authservice.MCToken, error) {
-	if a.token.MCToken == nil || a.token.MCToken.ValidUntil.Before(time.Now()) {
+	if a.token.MCToken != nil {
+		if !a.checkMCToken() {
+			a.token.MCToken = nil
+		}
+	}
+	if a.token.MCToken == nil {
 		discovery, err := a.Discovery(ctx)
 		if err != nil {
 			return nil, err

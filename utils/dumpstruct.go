@@ -82,7 +82,7 @@ func dumpValue(f io.StringWriter, level int, value reflect.Value, withType, isEn
 		f.WriteString("\n")
 
 		if isEntityMetadata {
-			meta := protocol.EntityMetadata(value.Interface().(map[uint32]any))
+			meta := protocol.EntityMetadata(value.Interface().(protocol.EntityMetadata))
 			if _, ok := meta[protocol.EntityDataKeyFlags]; ok {
 				f.WriteString(tabs + "\tFlags: ")
 				var first = true

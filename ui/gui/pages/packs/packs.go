@@ -37,7 +37,6 @@ type Page struct {
 	Packs     []*packEntry
 	packsList widget.List
 	l         sync.Mutex
-	onlyKeys  bool
 
 	State messages.UIState
 	back  widget.Clickable
@@ -121,7 +120,7 @@ func MulAlpha(c color.NRGBA, alpha uint8) color.NRGBA {
 	return c
 }
 
-func (p *Page) drawPackEntry(gtx C, th *material.Theme, pack *packEntry, onlyKeys bool) D {
+func (p *Page) drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 	var size = ""
 	var colorSize = th.Palette.Fg
 	if pack.IsFinished {
@@ -156,12 +155,6 @@ func (p *Page) drawPackEntry(gtx C, th *material.Theme, pack *packEntry, onlyKey
 								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 									layout.Rigid(mctext.Label(th, th.TextSize, pack.Name+" §rv"+pack.Version, p.g.Invalidate, p.frame)),
 									layout.Rigid(func(gtx C) D {
-										if onlyKeys {
-											t := material.Body1(th, pack.Key)
-											t.State = &pack.keySelect
-											return t.Layout(gtx)
-										}
-
 										var styles = []styledtext.SpanStyle{
 											{
 												Font:    font.Font{Typeface: th.Face},
@@ -269,7 +262,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 						return material.List(th, &p.packsList).
 							Layout(gtx, len(p.Packs), func(gtx C, index int) D {
 								pack := p.Packs[index]
-								return p.drawPackEntry(gtx, th, pack, p.onlyKeys)
+								return p.drawPackEntry(gtx, th, pack)
 							})
 					}),
 				)
@@ -315,10 +308,6 @@ func (p *Page) HandleEvent(event any) error {
 			}
 			if pack.Name == "" {
 				pack.Name = pack.UUID
-			}
-			if event.KeysOnly {
-				pack.IsFinished = true
-				p.onlyKeys = true
 			}
 			p.Packs = append(p.Packs, pack)
 		}

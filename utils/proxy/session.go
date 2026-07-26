@@ -59,7 +59,7 @@ type Session struct {
 	clientData       login.ClientData
 	clientAddr       net.Addr
 	spawned          bool
-	disconnectReason string
+	disconnectReason atomic.Pointer[string]
 	lastPacketTime   atomic.Pointer[time.Time]
 }
 
@@ -76,7 +76,6 @@ func NewSession(ctx context.Context, settings ProxySettings, addedPacks []resour
 
 		clientConnecting: make(chan struct{}),
 		haveClientData:   make(chan struct{}),
-		disconnectReason: "Connection Lost",
 		commands:         make(map[string]ingameCommand),
 	}
 }
@@ -149,9 +148,6 @@ func (s *Session) newResourcePackHandler(ctx context.Context) *resourcepacks.Res
 	rpHandler.OnFinishedPack = func(p resource.Pack) error {
 		return s.handlers.OnFinishedPack(s, p)
 	}
-	rpHandler.FilterDownloadResourcePacks = func(id string) bool {
-		return s.handlers.FilterResourcePack(s, id)
-	}
 	return rpHandler
 }
 
@@ -219,7 +215,11 @@ func (s *Session) Run() error {
 	if s.listener != nil {
 		defer func() {
 			if s.Client != nil {
-				_ = s.listener.Disconnect(s.Client.(*minecraft.Conn), s.disconnectReason)
+				var reason = "Disconnected"
+				if disconnectReason := s.disconnectReason.Load(); disconnectReason != nil {
+					reason = *disconnectReason
+				}
+				_ = s.listener.Disconnect(s.Client.(*minecraft.Conn), reason)
 			}
 			_ = s.listener.Close()
 		}()
@@ -230,11 +230,11 @@ func (s *Session) Run() error {
 		if errors.Is(err, errCancelConnect) {
 			err = nil
 		}
+		reason := "Disconnected"
 		if err != nil {
-			s.disconnectReason = err.Error()
-		} else {
-			s.disconnectReason = "Disconnect"
+			reason = err.Error()
 		}
+		s.disconnectReason.Store(&reason)
 
 		if s.expectDisconnect {
 			return nil
@@ -255,20 +255,16 @@ func (s *Session) Run() error {
 	s.handlers.GameDataModifier(s, &gameData)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		err := s.Server.DoSpawnContext(s.ctx)
 		if err != nil {
 			s.cancelCtx(err)
 			return
 		}
-	}()
+	})
 
 	if s.Client != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			if s.dimensionData != nil {
 				s.Client.WritePacket(s.dimensionData)
 			}
@@ -277,14 +273,15 @@ func (s *Session) Run() error {
 				s.cancelCtx(err)
 				return
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
 
 	err = context.Cause(s.ctx)
 	if err != nil {
-		s.disconnectReason = err.Error()
+		reason := err.Error()
+		s.disconnectReason.Store(&reason)
 		if s.expectDisconnect {
 			return nil
 		}
@@ -326,7 +323,8 @@ func (s *Session) Run() error {
 		}
 	}
 	if err != nil {
-		s.disconnectReason = err.Error()
+		reason := err.Error()
+		s.disconnectReason.Store(&reason)
 		return err
 	}
 
@@ -340,23 +338,19 @@ func (s *Session) connect() error {
 
 	rpHandler := s.newResourcePackHandler(ctx)
 	if s.withClient {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			err := s.connectClient(ctx, rpHandler)
 			if err != nil && !errors.Is(err, context.Canceled) {
 				cancelCause(err)
 			}
-		}()
+		})
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		err := s.connectServer(ctx, rpHandler)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			cancelCause(err)
 		}
-	}()
+	})
 	wg.Wait()
 	if err := context.Cause(ctx); err != nil {
 		return err
@@ -632,9 +626,8 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 
 		if pk != nil && c2 != nil {
 			if err := c2.WritePacket(pk); err != nil {
-				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
-					s.disconnectReason = disconnect.Error()
-				}
+				reason := err.Error()
+				s.disconnectReason.Store(&reason)
 				if errors.Is(err, net.ErrClosed) {
 					err = nil
 				}

@@ -73,8 +73,7 @@ type EventFinishedSavingWorld struct {
 //
 
 type EventInitialPacksInfo struct {
-	Packs    []protocol.TexturePackInfo
-	KeysOnly bool
+	Packs []protocol.TexturePackInfo
 }
 
 type EventProcessingPack struct {

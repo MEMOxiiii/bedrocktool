@@ -403,8 +403,6 @@ func (w *World) EntityCounts(entityRenderDistance float32) (total, active int) {
 }
 
 func (w *World) AddEntityLink(el protocol.EntityLink) {
-	w.stateLock.Lock()
-	defer w.stateLock.Unlock()
 	w.memState.AddEntityLink(el)
 }
 

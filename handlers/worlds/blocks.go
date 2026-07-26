@@ -10,11 +10,17 @@ import (
 )
 
 var traitLookup = map[string][]any{
+	"minecraft:cardinal_direction": {
+		"north", "east", "south", "west",
+	},
 	"minecraft:facing_direction": {
 		"north", "east", "south", "west", "down", "up",
 	},
-	"minecraft:cardinal_direction": {
-		"north", "east", "south", "west",
+	"minecraft:corner_and_cardinal_direction": {
+		"inner_left", "inner_right", "outer_left", "outer_right", "none",
+	},
+	"minecraft:sixteen_way_rotation": {
+		"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
 	},
 	"minecraft:vertical_half": {
 		"top", "bottom",
@@ -57,22 +63,33 @@ func AddCustomBlocks(reg world.BlockRegistry, entries []protocol.BlockEntry) err
 		if ok {
 			for _, trait := range traits {
 				trait := trait.(map[string]any)
-				enabled_states := trait["enabled_states"].(map[string]any)
-				for k, enabled := range enabled_states {
-					if !strings.ContainsRune(k, ':') {
-						k = "minecraft:" + k
-					}
-					enabled := enabled.(uint8)
-					if enabled == 0 {
-						continue
-					}
-					v, ok := traitLookup[k]
-					if !ok {
-						return fmt.Errorf("unresolved trait %s", k)
-					}
+				name := trait["name"].(string)
+				switch enabled_states := trait["enabled_states"].(type) {
+				case map[string]any:
+					for k, enabled := range enabled_states {
+						if !strings.ContainsRune(k, ':') {
+							k = "minecraft:" + k
+						}
+						enabled := enabled.(uint8)
+						if enabled == 0 {
+							continue
+						}
+						v, ok := traitLookup[k]
+						if !ok {
+							return fmt.Errorf("unresolved trait %s", k)
+						}
 
-					propertyNames = append(propertyNames, k)
-					propertyValues = append(propertyValues, v)
+						propertyNames = append(propertyNames, k)
+						propertyValues = append(propertyValues, v)
+					}
+				case int32:
+					if name == "minecraft:connection" {
+						propertyNames = append(propertyNames, "minecraft:connection_north", "minecraft:connection_south", "minecraft:connection_west", "minecraft:connection_east")
+						var b = []bool{false, true}
+						propertyValues = append(propertyValues, b, b, b, b)
+					} else {
+						return fmt.Errorf("unresolved trait %s", name)
+					}
 				}
 			}
 		}

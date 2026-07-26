@@ -29,7 +29,6 @@ type ResourcePacksSettings struct {
 	ProxySettings proxy.ProxySettings `without:"listen"`
 
 	SaveEncrypted bool `opt:"Save Encrypted" flag:"save-encrypted"`
-	OnlyKeys      bool `opt:"Only save keys" flag:"only-keys"`
 	Folders       bool `opt:"Write Folders" flag:"folders"`
 }
 
@@ -195,12 +194,8 @@ func (r *resourcePackHandler) onPacket(s *proxy.Session, pk packet.Packet, toSer
 			}
 		}
 
-		if r.packSettings.OnlyKeys {
-			s.DisconnectServer()
-		}
 		messages.SendEvent(&messages.EventInitialPacksInfo{
-			Packs:    pk.TexturePacks,
-			KeysOnly: r.packSettings.OnlyKeys,
+			Packs: pk.TexturePacks,
 		})
 
 	case *packet.ResourcePackChunkData:
@@ -246,10 +241,6 @@ func (r *resourcePackHandler) Handler() *proxy.Handler {
 			}()
 
 			return nil
-		},
-
-		FilterResourcePack: func(_ *proxy.Session, id string) bool {
-			return r.packSettings.OnlyKeys
 		},
 
 		OnFinishedPack: func(_ *proxy.Session, pack resource.Pack) error {
